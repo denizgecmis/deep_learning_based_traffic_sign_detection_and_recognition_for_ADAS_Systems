@@ -1,0 +1,679 @@
+# Importing needed libraries
+import matplotlib.pyplot as plt
+import numpy as np
+import h5py
+
+
+from keras.models import load_model
+from tensorflow.keras.utils import to_categorical
+from keras.callbacks import LearningRateScheduler, ModelCheckpoint, Callback
+
+# Full or absolute path to 'Section4' with preprocessed datasets
+# (!) On Windows, the path should look like following:
+# r'C:\Users\your_name\PycharmProjects\CNNCourse\Section4'
+# or:
+# 'C:\\Users\\your_name\\PycharmProjects\\CNNCourse\\Section4'
+full_path_to_Section4 = r'C:\Users\Deniz\Desktop\CNNCOURSE\Section4'
+
+
+# Full or absolute path to 'Section5' with designed models
+# (!) On Windows, the path should look like following:
+# r'C:\Users\your_name\PycharmProjects\CNNCourse\Section5'
+# or:
+# 'C:\\Users\\your_name\\PycharmProjects\\CNNCourse\\Section5'
+full_path_to_Section6 = r'C:\Users\Deniz\Desktop\CNNCOURSE\Section6'
+
+Traffic Signs dataset, 1st model
+Step 1: Loading saved 1st model
+[39]
+# Defining lists to collect models in
+model_rgb = []
+model_gray = []
+
+
+# Loading 1st model for Traffic Signs dataset
+# (!) On Windows, it might need to change
+# this: + '/' +
+# to this: + '\' +
+# or to this: + '\\' +
+for i in range(2):
+    model_rgb.append(load_model(full_path_to_Section6 + '/' + 
+                                'ts' + '/' + 
+                                'model_1_ts_rgb.h5'))
+    
+    model_gray.append(load_model(full_path_to_Section6 + '/' + 
+                                 'ts' + '/' + 
+                                 'model_1_ts_gray.h5'))
+
+
+# Check point
+print('Models are successfully loaded')
+
+Models are successfully loaded
+
+[40]
+# Showing models' input shapes
+print(model_rgb[0].layers[0].input_shape)
+print()
+print(model_gray[0].layers[0].input_shape)
+
+(None, 48, 48, 3)
+
+(None, 48, 48, 1)
+
+Traffic Signs dataset, 1st model
+Step 2: Setting up learning rate & epochs
+[41]
+# Defining number of epochs
+epochs = 50
+
+
+# Defining schedule to update learning rate
+learning_rate = LearningRateScheduler(lambda x: 1e-2 * 0.95 ** (x + epochs), verbose=1)
+
+
+# Check point
+print('Number of epochs and schedule for learning rate are set successfully')
+
+Number of epochs and schedule for learning rate are set successfully
+
+# If you're using Nvidia GPU and 'cnngpu' environment, there might be an issue like:
+'''Failed to get convolution algorithm. This is probably because cuDNN failed to initialize'''
+# In this case, close all Jupyter Notebooks, close Terminal Window or Anaconda Prompt
+# Open again just this one Jupyter Notebook and run it
+
+
+# Preparing list with datasets' names
+datasets = ['dataset_ts_rgb_255_mean.hdf5',
+            'dataset_ts_rgb_255_mean_std.hdf5',
+            'dataset_ts_gray_255_mean.hdf5',
+            'dataset_ts_gray_255_mean_std.hdf5']
+
+
+# Defining list to collect results in
+h = []
+
+
+# Training 1st model with all Traffic Signs datasets in a loop
+for i in range(4):
+    # Opening saved Traffic Signs dataset from HDF5 binary file
+    # Initiating File object
+    # Opening file in reading mode by 'r'
+    # (!) On Windows, it might need to change
+    # this: + '/' +
+    # to this: + '\' +
+    # or to this: + '\\' +
+    with h5py.File(full_path_to_Section6 + '/' + 'ts' + '/' + datasets[i], 'r') as f:
+        # Extracting saved arrays for training by appropriate keys
+        # Saving them into new variables
+        x_train = f['x_train']  # HDF5 dataset
+        y_train = f['y_train']  # HDF5 dataset
+        # Converting them into Numpy arrays
+        x_train = np.array(x_train)  # Numpy arrays
+        y_train = np.array(y_train)  # Numpy arrays
+
+        # Extracting saved arrays for validation by appropriate keys
+        # Saving them into new variables
+        x_validation = f['x_validation']  # HDF5 dataset
+        y_validation = f['y_validation']  # HDF5 dataset
+        # Converting them into Numpy arrays
+        x_validation = np.array(x_validation)  # Numpy arrays
+        y_validation = np.array(y_validation)  # Numpy arrays
+    
+    
+    # Check point
+    print('Following dataset is successfully opened:        ', datasets[i])
+    
+    
+    # Preparing classes to be passed into the model
+    # Transforming them from vectors to binary matrices
+    # It is needed to set relationship between classes to be understood by the algorithm
+    # Such format is commonly used in training and predicting
+    y_train = to_categorical(y_train, num_classes = 43)
+    y_validation = to_categorical(y_validation, num_classes = 43)
+    
+    
+    # Check point
+    print('Binary matrices are successfully created:        ', datasets[i])
+ 
+
+    # Preparing filepath to save best weights
+    # (!) On Windows, it might need to change
+    # this: + '/' +
+    # to this: + '\' +
+    # or to this: + '\\' +
+    best_weights_filepath = 'ts' + '/' + 'w_1' + datasets[i][7:-5] + '.h5'
+    
+    # Formatting options to save all weights for every epoch
+    # 'ts' + '/' + 'w_1' + datasets[i][7:-5] + '_{epoch:02d}_{val_accuracy:.4f}' + '.h5'
+    
+    # Defining schedule to save best weights
+    best_weights = ModelCheckpoint(filepath=best_weights_filepath,
+                                   save_weights_only=True,                                   
+                                   monitor='val_accuracy',
+                                   mode='max',
+                                   save_best_only=True,
+                                   period=1,
+                                   verbose=1)
+    
+    
+    # Check point
+    print('Schedule to save best weights is created:        ', datasets[i])
+
+    
+    # Checking if RGB dataset is opened
+    if i <= 1:
+        # Training RGB model with current dataset
+        temp = model_rgb[i].fit(x_train, y_train,
+                                batch_size=50,
+                                epochs=epochs,
+                                validation_data=(x_validation, y_validation),
+                                callbacks=[learning_rate, best_weights],
+                                verbose=1)
+
+        
+        # Adding results of 1st model for current RGB dataset in the list
+        h.append(temp)
+        
+        
+        # Check points
+        print('1st model for RGB is successfully trained on:    ', datasets[i])
+        print('Trained weights for RGB are saved successfully:  ', 'w_1' + datasets[i][7:-5] + '.h5')
+        print()
+    
+    # Checking if GRAY dataset is opened
+    elif i >= 2:
+        # Training GRAY model with current dataset
+        temp = model_gray[i-2].fit(x_train, y_train,
+                                   batch_size=50,
+                                   epochs=epochs,
+                                   validation_data=(x_validation, y_validation),
+                                   callbacks=[learning_rate, best_weights],
+                                   verbose=1)
+
+        
+        # Adding results of 1st model for current GRAY dataset in the list
+        h.append(temp)
+        
+        
+        # Check points
+        print('1st model for GRAY is successfully trained on:   ', datasets[i])
+        print('Trained weights for GRAY are saved successfully: ', 'w_1' + datasets[i][7:-5] + '.h5')
+        print()
+
+Following dataset is successfully opened:         dataset_ts_rgb_255_mean.hdf5
+Binary matrices are successfully created:         dataset_ts_rgb_255_mean.hdf5
+WARNING:tensorflow:`period` argument is deprecated. Please use `save_freq` to specify the frequency in number of batches seen.
+Schedule to save best weights is created:         dataset_ts_rgb_255_mean.hdf5
+
+
+Traffic Signs dataset, 1st model
+Step 3: Training
+Traffic Signs dataset, 1st model
+Step 4: Showing and plotting results
+# Resulted accuracies of all Traffic Signs datasets for 1st model
+for i in range(4):
+    print('T: {0:.5f},  V: {1:.5f},  D: {2}'.format(max(h[i].history['accuracy']),
+                                                    max(h[i].history['val_accuracy']),
+                                                    datasets[i][8:-5]))
+
+# Showing other parameters that history holds
+print(h[0].params)
+
+# Magic function that renders the figure in a jupyter notebook
+# instead of displaying a figure object
+%matplotlib inline
+
+
+# Setting default size of the plot
+plt.rcParams['figure.figsize'] = (12.0, 6.0)
+
+
+# Plotting accuracies of all Traffic Signs datasets for 1st model
+plt.plot(h[0].history['val_accuracy'], '-o')
+plt.plot(h[1].history['val_accuracy'], '-o')
+plt.plot(h[2].history['val_accuracy'], '-o')
+plt.plot(h[3].history['val_accuracy'], '-o')
+
+
+# Showing legend
+plt.legend(['rgb_255_mean', 'rgb_255_mean_std',
+            'gray_255_mean', 'gray_255_mean_std'],
+           loc='lower right',
+           fontsize='xx-large')
+
+
+# Giving name to axes
+plt.xlabel('Epoch', fontsize=16)
+plt.ylabel('Accuracy', fontsize=16)
+
+
+# Setting limit along Y axis
+plt.ylim(0.97, 0.9992)
+
+
+# Giving name to the plot
+plt.title('Validation accuracies of 1st model for Traffic Signs Datasets', fontsize=16)
+
+
+# Saving plot
+# (!) On Windows, it might need to change
+# this: + '/' +
+# to this: + '\' +
+# or to this: + '\\' +
+plt.savefig('ts' + '/' + 'validation_model_1_ts_dataset.png', dpi=500)
+
+
+# Showing the plot
+plt.show()
+
+# Magic function that renders the figure in a jupyter notebook
+# instead of displaying a figure object
+%matplotlib inline
+
+
+# Setting default size of the plot
+plt.rcParams['figure.figsize'] = (12.0, 6.0)
+
+
+# Plotting training and validation losses of all Traffic Signs datasets for 1st model
+plt.plot(h[0].history['loss'], '-ob')
+plt.plot(h[1].history['loss'], '-og')
+plt.plot(h[2].history['loss'], '-or')
+plt.plot(h[3].history['loss'], '-oc')
+
+plt.plot(h[0].history['val_loss'], '-ob')
+plt.plot(h[1].history['val_loss'], '-og')
+plt.plot(h[2].history['val_loss'], '-or')
+plt.plot(h[3].history['val_loss'], '-oc')
+
+
+# Showing legend
+plt.legend(['rgb_255_mean', 'rgb_255_mean_std',
+            'gray_255_mean', 'gray_255_mean_std'],
+           loc='center right',
+           fontsize='large')
+
+
+# Giving name to axes
+plt.xlabel('Epoch', fontsize=16)
+plt.ylabel('Loss', fontsize=16)
+
+
+# Giving name to the plot
+plt.title('Losses of 1st model for Traffic Signs Datasets', fontsize=16)
+
+
+# Saving plot
+# (!) On Windows, it might need to change
+# this: + '/' +
+# to this: + '\' +
+# or to this: + '\\' +
+plt.savefig('ts' + '/' + 'losses_model_1_ts_dataset.png', dpi=500)
+
+
+# Showing the plot
+plt.show()
+
+# Showing list of scheduled learning rate for every epoch
+print(h[0].history['lr'])
+
+# Magic function that renders the figure in a jupyter notebook
+# instead of displaying a figure object
+%matplotlib inline
+
+
+# Plotting scheduled learning rate
+plt.plot(h[0].history['lr'], '-mo')
+
+
+# Showing the plot
+plt.show()
+
+Traffic Signs dataset, 2nd model
+Step 1: Loading saved 2nd model
+# Defining lists to collect models in
+model_rgb = []
+model_gray = []
+
+
+# Loading 2nd model for Traffic Signs dataset
+# (!) On Windows, it might need to change
+# this: + '/' +
+# to this: + '\' +
+# or to this: + '\\' +
+for i in range(2):
+    model_rgb.append(load_model(full_path_to_Section6 + '/' + 
+                                'ts' + '/' + 
+                                'model_2_ts_rgb.h5'))
+    
+    model_gray.append(load_model(full_path_to_Section6 + '/' + 
+                                 'ts' + '/' + 
+                                 'model_2_ts_gray.h5'))
+
+
+# Check point
+print('Models are successfully loaded')
+
+# Showing models' input shapes
+print(model_rgb[0].layers[0].input_shape)
+print()
+print(model_gray[0].layers[0].input_shape)
+
+Traffic Signs dataset, 2nd model
+Step 2: Setting up learning rate & epochs
+# Defining number of epochs
+epochs = 50
+
+
+# Defining schedule to update learning rate
+learning_rate = LearningRateScheduler(lambda x: 1e-2 * 0.95 ** (x + epochs), verbose=1)
+
+
+# Check point
+print('Number of epochs and schedule for learning rate are set successfully')
+
+Traffic Signs dataset, 2nd model
+Step 3: Training
+# If you're using Nvidia GPU and 'cnngpu' environment, there might be an issue like:
+'''Failed to get convolution algorithm. This is probably because cuDNN failed to initialize'''
+# In this case, close all Jupyter Notebooks, close Terminal Window or Anaconda Prompt
+# Open again just this one Jupyter Notebook and run it
+
+
+# Preparing list with datasets' names
+datasets = ['dataset_ts_rgb_255_mean.hdf5',
+            'dataset_ts_rgb_255_mean_std.hdf5',
+            'dataset_ts_gray_255_mean.hdf5',
+            'dataset_ts_gray_255_mean_std.hdf5']
+
+
+# Defining list to collect results in
+h = []
+
+
+# Training 2nd model with all Traffic Signs datasets in a loop
+for i in range(4):
+    # Opening saved Traffic Signs dataset from HDF5 binary file
+    # Initiating File object
+    # Opening file in reading mode by 'r'
+    # (!) On Windows, it might need to change
+    # this: + '/' +
+    # to this: + '\' +
+    # or to this: + '\\' +
+    with h5py.File(full_path_to_Section6 + '/' + 'ts' + '/' + datasets[i], 'r') as f:
+        # Extracting saved arrays for training by appropriate keys
+        # Saving them into new variables
+        x_train = f['x_train']  # HDF5 dataset
+        y_train = f['y_train']  # HDF5 dataset
+        # Converting them into Numpy arrays
+        x_train = np.array(x_train)  # Numpy arrays
+        y_train = np.array(y_train)  # Numpy arrays
+
+        # Extracting saved arrays for validation by appropriate keys
+        # Saving them into new variables
+        x_validation = f['x_validation']  # HDF5 dataset
+        y_validation = f['y_validation']  # HDF5 dataset
+        # Converting them into Numpy arrays
+        x_validation = np.array(x_validation)  # Numpy arrays
+        y_validation = np.array(y_validation)  # Numpy arrays
+    
+    
+    # Check point
+    print('Following dataset is successfully opened:        ', datasets[i])
+    
+    
+    # Preparing classes to be passed into the model
+    # Transforming them from vectors to binary matrices
+    # It is needed to set relationship between classes to be understood by the algorithm
+    # Such format is commonly used in training and predicting
+    y_train = to_categorical(y_train, num_classes = 43)
+    y_validation = to_categorical(y_validation, num_classes = 43)
+    
+    
+    # Check point
+    print('Binary matrices are successfully created:        ', datasets[i])
+
+
+    # Preparing filepath to save best weights
+    # (!) On Windows, it might need to change
+    # this: + '/' +
+    # to this: + '\' +
+    # or to this: + '\\' +
+    best_weights_filepath = 'ts' + '/' + 'w_2' + datasets[i][7:-5] + '.h5'
+    
+    # Formatting options to save all weights for every epoch
+    # 'ts' + '/' + 'w_2' + datasets[i][7:-5] + '_{epoch:02d}_{val_accuracy:.4f}' + '.h5'
+    
+    # Defining schedule to save best weights
+    best_weights = ModelCheckpoint(filepath=best_weights_filepath,
+                                   save_weights_only=True,                                   
+                                   monitor='val_accuracy',
+                                   mode='max',
+                                   save_best_only=True,
+                                   period=1,
+                                   verbose=1)
+    
+    
+    # Check point
+    print('Schedule to save best weights is created:        ', datasets[i])
+    
+    
+    # Defining schedule to save intermediate weights
+    class CustomCallback(Callback):
+        # Constructor of the class
+        def __init__(self):
+            # Defining variable to be as a part of filename
+            self.filename = 0
+        
+        # Function that is called at the end of every batch
+        def on_train_batch_end(self, batch, logs=None):
+            # Checking if it is every 100th batch
+            if batch % 100 == 0:
+                # Preparing filepath to save intermediate weights
+                # (!) On Windows, it might need to change
+                # this: + '/' +
+                # to this: + '\' +
+                # or to this: + '\\' +
+                intermediate_weights_filepath = 'ts' + '/' + \
+                                                'intermediate' + '/' + \
+                                                '{0:04d}'.format(self.filename) + \
+                                                '_w_2' + \
+                                                datasets[i][7:-5] + '.h5'
+                
+                # Getting weights only for the first convolutional layer
+                weights_layer_0 = self.model.get_weights()[0]
+                
+                # Saving obtained weights into new HDF5 binary file
+                # Initiating File object
+                # Creating file with current name
+                # Opening it in writing mode by 'w'
+                # (!) On Windows, it might need to change
+                # this: + '/' +
+                # to this: + '\' +
+                # or to this: + '\\' +
+                with h5py.File(intermediate_weights_filepath, 'w') as f:
+                    # Calling method to create dataset of given shape and type
+                    # Saving Numpy array with weights from the first layer
+                    f.create_dataset('weights_layer_0', data=weights_layer_0, dtype='f')
+                    
+                # Increasing variable to be as a part of the next filename
+                self.filename += 1
+    
+    
+    # Check point
+    print('Schedule to save intermediate weights is created:', datasets[i])
+
+    
+    # Checking if RGB dataset is opened
+    if i <= 1:
+        # Checking if second RGB dataset is opened
+        if i == 1:
+            # Training RGB model with current dataset
+            temp = model_rgb[i].fit(x_train, y_train,
+                                    batch_size=50,
+                                    epochs=epochs,
+                                    validation_data=(x_validation, y_validation),
+                                    callbacks=[learning_rate, best_weights, CustomCallback()],
+                                    verbose=1)
+        
+        # Checking if first RGB dataset is opened
+        else:
+            # Training RGB model with current dataset
+            temp = model_rgb[i].fit(x_train, y_train,
+                                    batch_size=50,
+                                    epochs=epochs,
+                                    validation_data=(x_validation, y_validation),
+                                    callbacks=[learning_rate, best_weights],
+                                    verbose=1)
+
+        
+        # Adding results of 2nd model for current RGB dataset in the list
+        h.append(temp)
+        
+        
+        # Check points
+        print('2nd model for RGB is successfully trained on:    ', datasets[i])
+        print('Trained weights for RGB are saved successfully:  ', 'w_2' + datasets[i][7:-5] + '.h5')
+        print()
+    
+    # Checking if GRAY dataset is opened
+    elif i >= 2:
+        # Training GRAY model with current dataset
+        temp = model_gray[i-2].fit(x_train, y_train,
+                                   batch_size=50,
+                                   epochs=epochs,
+                                   validation_data=(x_validation, y_validation),
+                                   callbacks=[learning_rate, best_weights],
+                                   verbose=1)
+
+        
+        # Adding results of 2nd model for current GRAY dataset in the list
+        h.append(temp)
+        
+        
+        # Check points
+        print('2nd model for GRAY is successfully trained on:   ', datasets[i])
+        print('Trained weights for GRAY are saved successfully: ', 'w_2' + datasets[i][7:-5] + '.h5')
+        print()
+
+Traffic Signs dataset, 2nd model
+Step 4: Showing and plotting results
+# Resulted accuracies of all Traffic Signs datasets for 2nd model
+for i in range(4):
+    print('T: {0:.5f},  V: {1:.5f},  D: {2}'.format(max(h[i].history['accuracy']),
+                                                    max(h[i].history['val_accuracy']),
+                                                    datasets[i][8:-5]))
+
+# Showing other parameters that history holds
+print(h[0].params)
+
+# Magic function that renders the figure in a jupyter notebook
+# instead of displaying a figure object
+%matplotlib inline
+
+
+# Setting default size of the plot
+plt.rcParams['figure.figsize'] = (12.0, 6.0)
+
+
+# Plotting accuracies of all Traffic Signs datasets for 2nd model
+plt.plot(h[0].history['val_accuracy'], '-o')
+plt.plot(h[1].history['val_accuracy'], '-o')
+plt.plot(h[2].history['val_accuracy'], '-o')
+plt.plot(h[3].history['val_accuracy'], '-o')
+
+
+# Showing legend
+plt.legend(['rgb_255_mean', 'rgb_255_mean_std',
+            'gray_255_mean', 'gray_255_mean_std'],
+           loc='lower right',
+           fontsize='xx-large')
+
+
+# Giving name to axes
+plt.xlabel('Epoch', fontsize=16)
+plt.ylabel('Accuracy', fontsize=16)
+
+
+# Setting limit along Y axis
+plt.ylim(0.88, 0.994)
+
+
+# Giving name to the plot
+plt.title('Validation accuracies of 2nd model for Traffic Signs Datasets', fontsize=16)
+
+
+# Saving plot
+# (!) On Windows, it might need to change
+# this: + '/' +
+# to this: + '\' +
+# or to this: + '\\' +
+plt.savefig('ts' + '/' + 'validation_model_2_ts_dataset.png', dpi=500)
+
+
+# Showing the plot
+plt.show()
+
+# Magic function that renders the figure in a jupyter notebook
+# instead of displaying a figure object
+%matplotlib inline
+
+
+# Setting default size of the plot
+plt.rcParams['figure.figsize'] = (12.0, 6.0)
+
+
+# Plotting training and validation losses of all Traffic Signs datasets for 2nd model
+plt.plot(h[0].history['loss'], '-ob')
+plt.plot(h[1].history['loss'], '-og')
+plt.plot(h[2].history['loss'], '-or')
+plt.plot(h[3].history['loss'], '-oc')
+
+plt.plot(h[0].history['val_loss'], '-ob')
+plt.plot(h[1].history['val_loss'], '-og')
+plt.plot(h[2].history['val_loss'], '-or')
+plt.plot(h[3].history['val_loss'], '-oc')
+
+
+# Showing legend
+plt.legend(['rgb_255_mean', 'rgb_255_mean_std',
+            'gray_255_mean', 'gray_255_mean_std'],
+           loc='center right',
+           fontsize='large')
+
+
+# Giving name to axes
+plt.xlabel('Epoch', fontsize=16)
+plt.ylabel('Loss', fontsize=16)
+
+
+# Giving name to the plot
+plt.title('Losses of 2nd model for Traffic Signs Datasets', fontsize=16)
+
+
+# Saving plot
+# (!) On Windows, it might need to change
+# this: + '/' +
+# to this: + '\' +
+# or to this: + '\\' +
+plt.savefig('ts' + '/' + 'losses_model_2_ts_dataset.png', dpi=500)
+
+
+# Showing the plot
+plt.show()
+
+# Showing list of scheduled learning rate for every epoch
+print(h[0].history['lr'])
+
+# Magic function that renders the figure in a jupyter notebook
+# instead of displaying a figure object
+%matplotlib inline
+
+
+# Plotting scheduled learning rate
+plt.plot(h[0].history['lr'], '-mo')
+
+
+# Showing the plot
+plt.show()
